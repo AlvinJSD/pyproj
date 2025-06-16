@@ -1,0 +1,562 @@
+import tkinter as tk
+from tkinter import messagebox
+from tkinter import ttk
+from PIL import Image, ImageTk
+from datetime import datetime
+import os
+
+# Global user accounts storage
+user_accounts = {}
+buyer_data_list = []
+
+
+def save_account(username, password):
+    user_accounts[username] = password
+
+def validate_login(username, password):
+    return user_accounts.get(username) == password
+
+
+
+def open_car_detail(img_path, model, price):
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    detail_frame = tk.Frame(content_frame, bg="#191211")
+    detail_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+    # Back button
+    tk.Button(detail_frame, text="← Back", bg="#C7372C", fg="white", font=("Arial", 12),
+              command=open_home).pack(anchor="w")
+
+    # Horizontal layout frame
+    layout_frame = tk.Frame(detail_frame, bg="#191211")
+    layout_frame.pack(expand=True, fill="both", pady=40)
+
+    # Left image section
+    left_frame = tk.Frame(layout_frame, bg="#191211")
+    left_frame.pack(side="left", padx=30)
+
+    try:
+        img = Image.open(img_path).resize((350, 200))
+        photo = ImageTk.PhotoImage(img)
+        img_label = tk.Label(left_frame, image=photo, bg="#191211")
+        img_label.image = photo
+        img_label.pack()
+    except:
+        tk.Label(left_frame, text="Image Not Found", bg="#444", fg="white", width=40, height=10).pack()
+
+    # Right detail section
+    right_frame = tk.Frame(layout_frame, bg="#191211")
+    right_frame.pack(side="left", padx=40, anchor="n")
+
+    tk.Label(right_frame, text=model, bg="#191211", fg="white", font=("Arial", 24, "bold")).pack(anchor="w", pady=10)
+    tk.Label(right_frame, text=price, bg="#191211", fg="white", font=("Arial", 20)).pack(anchor="w", pady=5)
+
+    tk.Button(right_frame, text="Buy Now", bg="#C7372C", fg="white", font=("Arial", 14, "bold"),
+              command=lambda: open_buy_form(model, price, img_path)).pack(pady=20)
+
+
+def open_buy_form(model, price, img_path=None):
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    form_frame = tk.Frame(content_frame, bg="#191211")
+    form_frame.pack(fill="both", expand=True, padx=40, pady=40)
+
+    # Back button
+    tk.Button(form_frame, text="← Back", bg="#C7372C", fg="white", font=("Arial", 12),
+              command=lambda: open_car_detail(img_path, model, price)).pack(anchor="w")
+
+    tk.Label(form_frame, text="Purchase Car", bg="#191211", fg="white", font=("Arial", 24, "bold")).pack(pady=(10, 20))
+
+    canvas = tk.Canvas(form_frame, bg="#191211", highlightthickness=0)
+    scrollbar = tk.Scrollbar(form_frame, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas, bg="#191211")
+
+    scrollable_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(
+            scrollregion=canvas.bbox("all")
+        )
+    )
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # --- Field definitions ---
+    left_fields = {
+        "First Name": "",
+        "Last Name": "",
+        "Middle Name": "",
+        "Age": "",
+        "Payment Method": ""
+    }
+
+    right_fields = {
+        "Vehicle Model": model,
+        "Price": price,
+        "Address": "",
+        "Email": ""
+    }
+
+    entries = {}
+
+    form_fields = tk.Frame(scrollable_frame, bg="#191211")
+    form_fields.grid(row=0, column=0, sticky="nsew", padx=20)
+
+    form_fields.columnconfigure(0, weight=1)
+    form_fields.columnconfigure(1, weight=1)
+
+    # Left Column
+    left_col = tk.Frame(form_fields, bg="#191211")
+    left_col.grid(row=0, column=0, sticky="n")
+
+    for label_text, default_value in left_fields.items():
+        tk.Label(left_col, text=label_text, bg="#191211", fg="white", font=("Arial", 12)).pack(anchor="w", pady=4)
+        if label_text == "Payment Method":
+            entry = ttk.Combobox(left_col, font=("Arial", 12), width=37,
+                                 values=["Cash", "Credit Card", "Bank Transfer"])
+            entry.set("Cash")
+        else:
+            entry = tk.Entry(left_col, font=("Arial", 12), width=40)
+            entry.insert(0, default_value)
+        entry.pack(pady=4)
+        entries[label_text] = entry
+
+    # Right Column
+    right_col = tk.Frame(form_fields, bg="#191211")
+    right_col.grid(row=0, column=1, sticky="n", padx=(40, 0))
+
+    for label_text, default_value in right_fields.items():
+        tk.Label(right_col, text=label_text, bg="#191211", fg="white", font=("Arial", 12)).pack(anchor="w", pady=4)
+        entry = tk.Entry(right_col, font=("Arial", 12), width=40)
+        entry.insert(0, default_value)
+        entry.pack(pady=4)
+        entries[label_text] = entry
+
+    # Submit Button
+    tk.Button(scrollable_frame, text="Submit Purchase", bg="#C7372C", fg="white", font=("Arial", 14, "bold"),
+              command=lambda: submit_purchase(entries)).grid(row=1, column=0, columnspan=2, pady=30)
+
+
+def submit_purchase(entries):
+    buyer_data = {field: entry.get().strip() for field, entry in entries.items()}
+    errors = []
+
+    if not buyer_data["First Name"]:
+        errors.append("First Name is required.")
+    if not buyer_data["Email"] or "@" not in buyer_data["Email"]:
+        errors.append("A valid Email is required.")
+    if not buyer_data["Age"].isdigit():
+        errors.append("Age must be numeric.")
+
+    if errors:
+        messagebox.showerror("Form Error", "\n".join(errors))
+        return
+
+    buyer_data["Date"] = datetime.now().strftime("%Y-%m-%d")
+
+    buyer_data_list.append(buyer_data)
+    messagebox.showinfo("Success", "Purchase submitted successfully!")
+
+    open_dashboard()  # Redirect to dashboard after saving
+
+def open_home():
+    global cars, scroll_frame
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    # Setup search frame
+    search_frame = tk.Frame(content_frame, bg="#191211")
+    search_frame.pack(fill="x", pady=(10, 10))
+
+    search_var = tk.StringVar()
+    search_entry = tk.Entry(search_frame, textvariable=search_var, font=("Arial", 14), bg="#d9d9d9")
+    search_entry.pack(side="left", padx=(30, 10), pady=5, ipady=6, fill="x", expand=True)
+
+    find_btn = tk.Button(search_frame, text="Find", bg="#C7372C", fg="white", font=("Arial", 12),
+                         command=lambda: display_cars(search_var.get()))
+    find_btn.pack(side="left", padx=(0, 30), pady=5)
+
+    # Scrollable area (canvas + scrollbar)
+    canvas = tk.Canvas(content_frame, bg="#191211", highlightthickness=0)
+    scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    # Frame inside canvas to hold the car cards
+    scroll_frame = tk.Frame(canvas, bg="#191211")
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+
+    scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+    display_cars()
+
+def display_cars(search_term=""):
+    global cars, scroll_frame
+
+    # Dummy data para sa pic ayan ung file name
+    cars = [
+        {"img": "car1.jpg", "model": "Toyota Camry", "price": "$20,000"},
+        {"img": "car2.jpg", "model": "Honda Civic", "price": "$18,500"},
+        {"img": "car3.jpg", "model": "Ford Mustang", "price": "$35,000"},
+        {"img": "car4.jpg", "model": "Tesla Model 3", "price": "$45,000"},
+        {"img": "car5.jpg", "model": "BMW M3", "price": "$55,000"},
+        {"img": "car6.jpg", "model": "Chevrolet Camaro", "price": "$33,000"},
+        {"img": "car7.jpg", "model": "Nissan Altima", "price": "$21,000"},
+        {"img": "car8.jpg", "model": "Hyundai Elantra", "price": "$17,000"},
+    ]
+
+    # Filter if search term exists
+    results = search_cars(search_term) if search_term else cars
+
+    # Clear previous cards
+    for widget in scroll_frame.winfo_children():
+        widget.destroy()
+
+    # Re-populate cards
+    columns = 3
+    for idx, car in enumerate(results):
+        card = tk.Frame(scroll_frame, bg="#262626", width=300, height=350)
+        card.grid(row=idx // columns, column=idx % columns, padx=20, pady=20)
+        card.pack_propagate(False)
+
+        try:
+            img = Image.open(car["img"]).resize((280, 150))
+            photo = ImageTk.PhotoImage(img)
+            img_label = tk.Label(card, image=photo, bg="#262626")
+            img_label.image = photo
+            img_label.pack(pady=(10, 5))
+        except:
+            tk.Label(card, text="Image\nNot Found", bg="#444", fg="white", width=30, height=8).pack(pady=(10, 5))
+
+        tk.Label(card, text=car["model"], bg="#262626", fg="white", font=("Arial", 14, "bold")).pack(pady=5)
+        tk.Label(card, text=car["price"], bg="#262626", fg="white", font=("Arial", 12)).pack(pady=5)
+
+        tk.Button(card, text="View", bg="#C7372C", fg="white", font=("Arial", 12),
+                  command=lambda c=car: open_car_detail(c["img"], c["model"], c["price"])).pack(pady=10)
+
+def search_cars(term):
+    term = term.lower()
+    return [car for car in cars if term in car["model"].lower()]
+
+def open_dashboard():
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    tk.Label(content_frame, text="Buyer Dashboard", bg="#191211", fg="white",
+             font=("Arial", 20, "bold")).pack(pady=20)
+
+    # Table headers
+    columns = ["First Name", "Last Name", "Middle Name", "Age", "Email", "Address", "Vehicle Model", "Price", "Payment Method", "Date"]
+    table_frame = tk.Frame(content_frame, bg="#191211")
+    table_frame.pack(padx=10, pady=10)
+
+    for col_index, col_name in enumerate(columns):
+        tk.Label(table_frame, text=col_name, font=("Arial", 10, "bold"),
+                 bg="#C7372C", fg="white", width=14, borderwidth=1, relief="solid").grid(row=0, column=col_index)
+
+    # Rows
+    for row_index, buyer in enumerate(buyer_data_list, start=1):
+        for col_index, key in enumerate(columns):
+            value = buyer.get(key, "")
+            tk.Label(table_frame, text=value, font=("Arial", 10),
+                     bg="#333", fg="white", width=14, borderwidth=1, relief="solid").grid(row=row_index, column=col_index)
+
+def open_sell():
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    # ===== Search Bar =====
+    search_frame = tk.Frame(content_frame, bg="#191211")
+    search_frame.pack(fill="x", pady=(0, 10))
+
+    search_var = tk.StringVar()
+    search_entry = tk.Entry(search_frame, textvariable=search_var, font=("Arial", 14), bg="#d9d9d9")
+    search_entry.pack(side="left", padx=(30, 10), pady=5, ipady=6, fill="x", expand=True)
+
+    find_btn = tk.Button(search_frame, text="Find", bg="#C7372C", fg="white", font=("Arial", 12),
+                         command=lambda: display_sell_cars(search_var.get()))
+    find_btn.pack(side="left", padx=(0, 30), pady=5)
+
+    display_sell_cars()  # load all by default
+
+def display_sell_cars(search_term=""):
+    for widget in content_frame.winfo_children():
+        if isinstance(widget, tk.Canvas) or isinstance(widget, tk.Scrollbar):
+            widget.destroy()
+
+    filtered_cars = [car for car in cars if search_term.lower() in car["model"].lower()] if search_term else cars
+
+    canvas = tk.Canvas(content_frame, bg="#191211", highlightthickness=0)
+    scrollbar = tk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+    scroll_frame = tk.Frame(canvas, bg="#191211")
+
+    scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    columns = 3
+    for idx, car in enumerate(filtered_cars):
+        card = tk.Frame(scroll_frame, bg="#262626", width=300, height=450)
+        card.grid(row=idx // columns, column=idx % columns, padx=20, pady=20)
+        card.pack_propagate(False)
+
+        try:
+            img = Image.open(car["img"]).resize((280, 150))
+            photo = ImageTk.PhotoImage(img)
+            img_label = tk.Label(card, image=photo, bg="#262626")
+            img_label.image = photo
+            img_label.pack(pady=(10, 5))
+        except:
+            tk.Label(card, text="Image\nNot Found", bg="#444", fg="white", width=30, height=8).pack(pady=(10, 5))
+
+        name_var = tk.StringVar(value=car["model"])
+        price_var = tk.StringVar(value=car["price"])
+        img_var = tk.StringVar(value=car["img"])
+
+        tk.Entry(card, textvariable=name_var, font=("Arial", 12), width=25).pack(pady=3)
+        tk.Entry(card, textvariable=price_var, font=("Arial", 12), width=25).pack(pady=3)
+        tk.Entry(card, textvariable=img_var, font=("Arial", 12), width=25).pack(pady=3)
+
+        btn_frame = tk.Frame(card, bg="#262626")
+        btn_frame.pack(pady=8)
+
+        tk.Button(btn_frame, text="Save", bg="#C7372C", fg="white", font=("Arial", 10),
+                  command=lambda c=car, n=name_var, p=price_var, i=img_var: update_car_info(c, n, p, i)).pack(side="left", padx=5)
+
+        tk.Button(btn_frame, text="Delete", bg="gray", fg="white", font=("Arial", 10),
+                  command=lambda c=car: delete_car(c)).pack(side="left", padx=5)
+
+    add_btn = tk.Button(content_frame, text="+ Add Car", bg="#C7372C", fg="white", font=("Arial", 14, "bold"),
+                        command=open_add_car_popup)
+    add_btn.place(relx=0.95, rely=0.95, anchor="se")
+
+
+def update_car_info(car, name_var, price_var, img_var):
+    car["model"] = name_var.get()
+    car["price"] = price_var.get()
+    car["img"] = img_var.get()
+    messagebox.showinfo("Updated", "Car info has been updated.")
+    open_sell()  # Refresh the Sell page to reflect updated image
+
+
+def delete_car(car):
+    cars.remove(car)
+    messagebox.showinfo("Deleted", "Car has been removed.")
+    open_sell()
+
+
+def open_add_car_popup():
+    popup = tk.Toplevel()
+    popup.title("Add New Car")
+    popup.geometry("400x400")
+    popup.configure(bg="#1e1e1e")
+
+    tk.Label(popup, text="Car Model:", bg="#1e1e1e", fg="white").pack(pady=5)
+    model_entry = tk.Entry(popup, font=("Arial", 12))
+    model_entry.pack(pady=5)
+
+    tk.Label(popup, text="Price:", bg="#1e1e1e", fg="white").pack(pady=5)
+    price_entry = tk.Entry(popup, font=("Arial", 12))
+    price_entry.pack(pady=5)
+
+    tk.Label(popup, text="Image File Name:", bg="#1e1e1e", fg="white").pack(pady=5)
+    img_entry = tk.Entry(popup, font=("Arial", 12))
+    img_entry.pack(pady=5)
+
+    def add_car():
+        model = model_entry.get()
+        price = price_entry.get()
+        img = img_entry.get()
+        if model and price and img:
+            cars.append({"img": img, "model": model, "price": price})
+            popup.destroy()
+            open_sell()  # refresh the Sell page
+        else:
+            messagebox.showwarning("Missing Data", "Please fill out all fields.")
+
+    tk.Button(popup, text="Add Car", bg="#C7372C", fg="white", font=("Arial", 12), command=add_car).pack(pady=20)
+
+
+def open_main_dashboard():
+    global content_frame  # to access in navigation functions
+    dashboard = tk.Toplevel()
+    dashboard.title("Main Dashboard")
+    dashboard.state('zoomed')
+    dashboard.configure(bg="#191211")
+
+    sidebar = tk.Frame(dashboard, bg="#1e1e1e", width=250)
+    sidebar.pack(side="left", fill="y")
+
+    try:
+        logo_img = Image.open("logo.png").resize((100, 100))
+        logo_img = ImageTk.PhotoImage(logo_img)
+        logo_label = tk.Label(sidebar, image=logo_img, bg="#1e1e1e")
+        logo_label.image = logo_img
+        logo_label.pack(pady=(30, 10))
+    except:
+        tk.Label(sidebar, text="LOGO", font=("Arial", 20), bg="#1e1e1e", fg="white").pack(pady=(30, 10))
+
+    nav_buttons = [("Home", open_home), ("Dashboard", open_dashboard), ("Sell", open_sell)]
+    for btn_text, command in nav_buttons:
+        fg_color = "#C7372C" if btn_text == "Home" else "white"
+        tk.Button(sidebar, text=btn_text, bg="#333", fg=fg_color, font=("Arial", 12), relief="flat", height=2, command=command).pack(fill="x", padx=20, pady=5)
+
+    spacer = tk.Frame(sidebar, bg="#1e1e1e")
+    spacer.pack(expand=True, fill="both")
+
+    def logout():
+        if messagebox.askyesno("Logout Confirmation", "Are you sure you want to logout?"):
+            dashboard.destroy()
+            open_signin()
+
+    logout_btn = tk.Button(sidebar, text="Logout", bg="#710D0B", fg="white", font=("Arial", 12), relief="flat", height=2, command=logout)
+    logout_btn.pack(fill="x", padx=20, pady=20)
+
+    header = tk.Frame(dashboard, bg="#C7372C", height=100)
+    header.pack(fill="x")
+    header.pack_propagate(False)
+    tk.Label(header, text="BUY AND SELL VEHICLE MANAGEMENT SYSTEM", bg="#C7372C", fg="white", font=("Arial", 22, "bold")).pack(side="left", padx=30)
+
+    content_frame = tk.Frame(dashboard, bg="#191211")
+    content_frame.pack(fill="both", expand=True, padx=30, pady=(0, 30))
+
+    open_home()  # Load the home page by default
+
+def open_login():
+    root = tk.Tk()
+    root.title("RAAJC Buy and Sell")
+    root.state("zoomed")
+    root.columnconfigure(0, weight=1)
+    root.columnconfigure(1, weight=1)
+    root.rowconfigure(0, weight=1)
+
+    left = tk.Frame(root, bg="white")
+    left.grid(row=0, column=0, sticky="nsew")
+
+    try:
+        logo = Image.open("logo.png").resize((200, 200))
+        logo_img = ImageTk.PhotoImage(logo)
+        tk.Label(left, image=logo_img, bg="white").place(relx=0.5, rely=0.5, anchor="center")
+        left.image = logo_img
+    except:
+        tk.Label(left, text="LOGO", font=("Arial", 30), bg="white").place(relx=0.5, rely=0.5, anchor="center")
+
+    right = tk.Frame(root, bg="#f5f5f5")
+    right.grid(row=0, column=1, sticky="nsew")
+
+    container = tk.Frame(right, bg="#f5f5f5")
+    container.place(relx=0.5, rely=0.5, anchor="center")
+
+    tk.Label(container, text="Login", font=("Arial", 22), fg="#6e1414", bg="#f5f5f5").pack(pady=10)
+    tk.Label(container, text="Username", bg="#f5f5f5", fg="#6e1414").pack(anchor="w")
+    username_entry = tk.Entry(container, width=30, bg="#d9d9d9")
+    username_entry.pack(pady=5)
+
+    tk.Label(container, text="Password", bg="#f5f5f5", fg="#6e1414").pack(anchor="w")
+    password_entry = tk.Entry(container, width=30, show="*", bg="#d9d9d9")
+    password_entry.pack(pady=5)
+
+    show_password = tk.BooleanVar()
+    tk.Checkbutton(container, text="Show password", variable=show_password,
+                   command=lambda: password_entry.config(show="" if show_password.get() else "*"),
+                   bg="#f5f5f5").pack(anchor="w", pady=(0, 10))
+
+    def attempt_login():
+        username = username_entry.get().strip()
+        password = password_entry.get().strip()
+        if not username or not password:
+            messagebox.showerror("Login Error", "Both Username and Password are required.")
+        elif validate_login(username, password):
+            messagebox.showinfo("Login Successful", "Welcome!")
+            root.destroy()
+            open_main_dashboard()
+        else:
+            messagebox.showerror("Login Failed", "Invalid username or password.")
+
+    tk.Button(container, text="Login", bg="#6e1414", fg="white", width=20, command=attempt_login).pack(pady=5)
+    signup_frame = tk.Frame(container, bg="#f5f5f5")
+    signup_frame.pack()
+    tk.Label(signup_frame, text="Don't have an account yet? ", bg="#f5f5f5").pack(side="left")
+    signup_link = tk.Label(signup_frame, text="Sign up", fg="blue", cursor="hand2", bg="#f5f5f5")
+    signup_link.pack(side="left")
+    signup_link.bind("<Button-1>", lambda e: [root.destroy(), open_signin()])
+
+    root.mainloop()
+
+def open_signin():
+    root = tk.Tk()
+    root.title("Create Account")
+    root.state("zoomed")
+    root.columnconfigure(0, weight=1)
+    root.columnconfigure(1, weight=1)
+    root.rowconfigure(0, weight=1)
+
+    left = tk.Frame(root, bg="white")
+    left.grid(row=0, column=0, sticky="nsew")
+
+    try:
+        logo = Image.open("logo.png").resize((200, 200))
+        logo_img = ImageTk.PhotoImage(logo)
+        tk.Label(left, image=logo_img, bg="white").place(relx=0.5, rely=0.5, anchor="center")
+        left.image = logo_img
+    except:
+        tk.Label(left, text="LOGO", font=("Arial", 30), bg="white").place(relx=0.5, rely=0.5, anchor="center")
+
+    right = tk.Frame(root, bg="#f5f5f5")
+    right.grid(row=0, column=1, sticky="nsew")
+
+    container = tk.Frame(right, bg="#f5f5f5")
+    container.place(relx=0.5, rely=0.5, anchor="center")
+
+    tk.Label(container, text="Sign Up", font=("Arial", 22), fg="#6e1414", bg="#f5f5f5").pack(pady=10)
+    tk.Label(container, text="Username", bg="#f5f5f5", fg="#6e1414").pack(anchor="w")
+    username_entry = tk.Entry(container, width=30, bg="#d9d9d9")
+    username_entry.pack(pady=5)
+
+    tk.Label(container, text="Password", bg="#f5f5f5", fg="#6e1414").pack(anchor="w")
+    password_entry = tk.Entry(container, width=30, show="*", bg="#d9d9d9")
+    password_entry.pack(pady=5)
+
+    show_password = tk.BooleanVar()
+    tk.Checkbutton(container, text="Show password", variable=show_password,
+                   command=lambda: password_entry.config(show="" if show_password.get() else "*"),
+                   bg="#f5f5f5").pack(anchor="w", pady=(0, 10))
+
+    def create_account():
+        username = username_entry.get().strip()
+        password = password_entry.get().strip()
+        if not username or not password:
+            messagebox.showerror("Sign Up Error", "Both Username and Password are required.")
+        elif username in user_accounts:
+            messagebox.showerror("Sign Up Failed", "Username already exists.")
+        else:
+            save_account(username, password)
+            messagebox.showinfo("Account Created", "Your account has been created successfully.")
+            root.destroy()
+            open_login()
+
+    tk.Button(container, text="Create Account", bg="#6e1414", fg="white", width=20, command=create_account).pack(pady=5)
+    login_frame = tk.Frame(container, bg="#f5f5f5")
+    login_frame.pack()
+    tk.Label(login_frame, text="Already have an account? ", bg="#f5f5f5").pack(side="left")
+    login_link = tk.Label(login_frame, text="Login", fg="blue", cursor="hand2", bg="#f5f5f5")
+    login_link.pack(side="left")
+    login_link.bind("<Button-1>", lambda e: [root.destroy(), open_login()])
+
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    # Start app with login page
+    open_login()
